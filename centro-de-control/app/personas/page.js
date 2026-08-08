@@ -23,6 +23,10 @@ export default async function PersonasPage() {
     <div className="min-h-screen flex" style={{ backgroundColor: 'var(--paper)' }}>
       <Sidebar profile={profile} />
       <div className="flex-1 min-w-0 p-8 max-w-4xl">
+        <div className="flex justify-end mb-4">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-wordmark.png" alt="Universal" className="h-7 w-auto opacity-90" />
+        </div>
         <PersonasTable profiles={profiles || []} provincias={provincias || []} currentUserId={user.id} />
       </div>
     </div>

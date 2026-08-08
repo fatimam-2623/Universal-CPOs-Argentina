@@ -18,8 +18,15 @@ function StatCard({ icon, label, value }) {
 }
 
 function latestRecord(workerId, records) {
-  const recs = records.filter((r) => r.worker_id === workerId).sort((a, b) => b.month.localeCompare(a.month));
+  const recs = records.filter((r) => r.worker_id === workerId).sort((a, b) => b.class_date.localeCompare(a.class_date));
   return recs[0] || null;
+}
+
+function latestEvalOf(workerId, records) {
+  const recs = records
+    .filter((r) => r.worker_id === workerId && r.evaluation != null)
+    .sort((a, b) => b.class_date.localeCompare(a.class_date));
+  return recs[0]?.evaluation ?? null;
 }
 
 export default function CpoOverview({ profile, provincias, workers, records, activeFilter, onFilterChange }) {
@@ -27,12 +34,14 @@ export default function CpoOverview({ profile, provincias, workers, records, act
 
   const stats = useMemo(() => {
     const totalCpos = workers.length;
-    const totalAsistencias = records.reduce((s, r) => s + (r.attendance_days || 0), 0);
-    const totalFaltas = records.reduce((s, r) => s + r.faults, 0);
+    const totalAsistencias = records.filter((r) => r.attended).length;
+    const totalFaltas = records.filter((r) => !r.attended).length;
 
-    const latests = workers.map((w) => latestRecord(w.id, records)).filter(Boolean);
-    const promedioEvaluacion = latests.length ? (latests.reduce((s, r) => s + r.evaluation, 0) / latests.length).toFixed(1) : '—';
-    const enAlerta = latests.filter((r) => r.faults >= 4 || r.evaluation <= 4).length;
+    const evals = workers.map((w) => latestEvalOf(w.id, records)).filter((e) => e != null);
+    const promedioEvaluacion = evals.length ? (evals.reduce((s, e) => s + e, 0) / evals.length).toFixed(1) : '—';
+
+    const faltasPorWorker = workers.map((w) => records.filter((r) => r.worker_id === w.id && !r.attended).length);
+    const enAlerta = faltasPorWorker.filter((f) => f >= 3).length;
 
     return { totalCpos, totalAsistencias, totalFaltas, promedioEvaluacion, enAlerta };
   }, [workers, records]);
@@ -44,9 +53,9 @@ export default function CpoOverview({ profile, provincias, workers, records, act
         const pWorkers = workers.filter((w) => w.provincia_id === p.id);
         if (pWorkers.length === 0) return null;
         const pRecords = records.filter((r) => pWorkers.some((w) => w.id === r.worker_id));
-        const latests = pWorkers.map((w) => latestRecord(w.id, records)).filter(Boolean);
-        const faltasAcum = pRecords.reduce((s, r) => s + r.faults, 0);
-        const promEval = latests.length ? (latests.reduce((s, r) => s + r.evaluation, 0) / latests.length).toFixed(1) : '—';
+        const evals = pWorkers.map((w) => latestEvalOf(w.id, records)).filter((e) => e != null);
+        const faltasAcum = pRecords.filter((r) => !r.attended).length;
+        const promEval = evals.length ? (evals.reduce((s, e) => s + e, 0) / evals.length).toFixed(1) : '—';
         return { provincia: p, count: pWorkers.length, faltasAcum, promEval };
       })
       .filter(Boolean)
@@ -66,7 +75,7 @@ export default function CpoOverview({ profile, provincias, workers, records, act
       {isSenior && breakdown.length > 0 && (
         <div>
           <h2 className="font-display text-sm font-semibold uppercase tracking-wide mb-3" style={{ color: '#5B6472' }}>
-            Partido / Provincia
+            Por Partido / Provincia
           </h2>
           <div className="overflow-x-auto rounded-xl border border-line bg-white">
             <table className="w-full text-sm">

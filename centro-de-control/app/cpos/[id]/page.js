@@ -17,10 +17,10 @@ export default async function CpoDetailPage({ params }) {
 
   const { data: provincias } = await supabase.from('provincias').select('*').order('name');
   const { data: records } = await supabase
-    .from('monthly_records')
+    .from('attendance_records')
     .select('*')
     .eq('worker_id', params.id)
-    .order('month', { ascending: false });
+    .order('class_date', { ascending: false });
   const { data: transfers } = await supabase
     .from('worker_transfers')
     .select('*')
@@ -47,6 +47,10 @@ export default async function CpoDetailPage({ params }) {
     <div className="min-h-screen flex" style={{ backgroundColor: 'var(--paper)' }}>
       <Sidebar profile={profile} />
       <div className="flex-1 min-w-0 p-8 max-w-4xl">
+        <div className="flex justify-end mb-4">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-wordmark.png" alt="Universal" className="h-7 w-auto opacity-90" />
+        </div>
         <CpoDetail
           profile={profile}
           worker={worker}

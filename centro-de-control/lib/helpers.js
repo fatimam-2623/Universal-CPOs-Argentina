@@ -20,6 +20,35 @@ export function last6Months() {
   return out;
 }
 
+// The program's fixed schedule: every Sunday for 6 months starting July 5, 2026.
+export const SESSION_START = '2026-07-05';
+
+export function classSessions() {
+  const start = new Date(`${SESSION_START}T00:00:00`);
+  const end = new Date(start);
+  end.setMonth(end.getMonth() + 6);
+  const sessions = [];
+  let d = new Date(start);
+  while (d <= end) {
+    sessions.push(d.toISOString().slice(0, 10));
+    d.setDate(d.getDate() + 7);
+  }
+  return sessions;
+}
+
+export function shortDate(dateStr) {
+  const d = new Date(`${dateStr}T00:00:00`);
+  return `${d.getDate()} ${MONTH_NAMES[d.getMonth()]}`;
+}
+
+// Most recent session on or before today; falls back to the first session if the program hasn't started.
+export function currentSession() {
+  const sessions = classSessions();
+  const today = new Date().toISOString().slice(0, 10);
+  const past = sessions.filter((s) => s <= today);
+  return past.length ? past[past.length - 1] : sessions[0];
+}
+
 export const ROLE_LABEL = {
   provincia_manager: 'Responsable Bloque',
   senior_management: 'Gerencia General',

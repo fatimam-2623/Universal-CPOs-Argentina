@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Plus, Pencil, Trash2, ArrowRightLeft, Search } from 'lucide-react';
 import { createWorker, updateWorker, deleteWorker, transferWorker } from '@/app/cpos/actions';
 import { ModalShell, Field, inputCls, IconButton, EvalBadge, FaultBadge, ProvinciaBadge } from './ui';
-import { monthLabel } from '@/lib/helpers';
+import { shortDate } from '@/lib/helpers';
 
 export default function CpoTable({ profile, provincias, workers, records }) {
   const [search, setSearch] = useState('');
@@ -20,11 +20,14 @@ export default function CpoTable({ profile, provincias, workers, records }) {
     return workers
       .filter((w) => w.name.toLowerCase().includes(search.toLowerCase()))
       .map((w) => {
-        const wRecords = records.filter((r) => r.worker_id === w.id).sort((a, b) => b.month.localeCompare(a.month));
+        const wRecords = records.filter((r) => r.worker_id === w.id).sort((a, b) => b.class_date.localeCompare(a.class_date));
         const latest = wRecords[0] || null;
-        const cumulative = wRecords.reduce((s, r) => s + r.faults, 0);
+        const asistencias = wRecords.filter((r) => r.attended).length;
+        const faltas = wRecords.filter((r) => !r.attended).length;
+        const withEval = wRecords.filter((r) => r.evaluation != null);
+        const latestEval = withEval[0]?.evaluation ?? null;
         const provincia = provincias.find((p) => p.id === w.provincia_id);
-        return { worker: w, latest, cumulative, provincia };
+        return { worker: w, latest, asistencias, faltas, latestEval, provincia };
       });
   }, [workers, records, provincias, search]);
 
@@ -35,7 +38,7 @@ export default function CpoTable({ profile, provincias, workers, records }) {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="font-display text-xl font-semibold" style={{ color: 'var(--ink)' }}>
-            {isSenior ? 'CPOs' : `CPOs — ${provinciaName || 'tu partido/provincia'}`}
+            {isSenior ? 'Todos los CPOs' : `CPOs — ${provinciaName || 'tu partido/provincia'}`}
           </h1>
           <p className="text-sm mt-0.5" style={{ color: '#5B6472' }}>
             {rows.length} en total
@@ -73,13 +76,13 @@ export default function CpoTable({ profile, provincias, workers, records }) {
                 </th>
               )}
               <th className="px-4 py-2.5 font-medium text-xs uppercase tracking-wide" style={{ color: '#5B6472' }}>
-                Último mes
+                Última clase
               </th>
               <th className="px-4 py-2.5 font-medium text-xs uppercase tracking-wide" style={{ color: '#5B6472' }}>
-                Faltas (mes)
+                Asistencias
               </th>
               <th className="px-4 py-2.5 font-medium text-xs uppercase tracking-wide" style={{ color: '#5B6472' }}>
-                Faltas acum.
+                Faltas
               </th>
               <th className="px-4 py-2.5 font-medium text-xs uppercase tracking-wide" style={{ color: '#5B6472' }}>
                 Evaluación
@@ -95,7 +98,7 @@ export default function CpoTable({ profile, provincias, workers, records }) {
                 </td>
               </tr>
             )}
-            {rows.map(({ worker, latest, cumulative, provincia }) => (
+            {rows.map(({ worker, latest, asistencias, faltas, latestEval, provincia }) => (
               <tr key={worker.id} className="border-b border-line last:border-0 hover:bg-black/[0.02]">
                 <td className="px-4 py-2.5">
                   <Link href={`/cpos/${worker.id}`} className="font-medium hover:underline" style={{ color: 'var(--ink)' }}>
@@ -113,16 +116,16 @@ export default function CpoTable({ profile, provincias, workers, records }) {
                   </td>
                 )}
                 <td className="px-4 py-2.5 font-mono text-xs" style={{ color: '#5B6472' }}>
-                  {latest ? monthLabel(latest.month.slice(0, 7)) : '—'}
+                  {latest ? `${shortDate(latest.class_date)} · ${latest.attended ? 'Asistió' : 'Faltó'}` : '—'}
                 </td>
                 <td className="px-4 py-2.5">
-                  <FaultBadge value={latest?.faults} />
+                  <FaultBadge value={asistencias} />
                 </td>
                 <td className="px-4 py-2.5">
-                  <FaultBadge value={cumulative} />
+                  <FaultBadge value={faltas} />
                 </td>
                 <td className="px-4 py-2.5">
-                  <EvalBadge value={latest?.evaluation} />
+                  <EvalBadge value={latestEval} />
                 </td>
                 <td className="px-4 py-2.5">
                   <div className="flex items-center gap-1 justify-end">

@@ -3,9 +3,9 @@
 import { useState, useRef } from 'react';
 import Link from 'next/link';
 import { Camera, Plus, Pencil, Upload, File as FileIcon, Download, Send, ArrowLeft, Trash2, Check, X as XIcon } from 'lucide-react';
-import { addRecord, updateRecord, addNote, updateNote, deleteNote, uploadPhoto, uploadFile, getFileUrl } from '@/app/cpos/actions';
+import { setAttendance, setEvaluation, addNote, updateNote, deleteNote, uploadPhoto, uploadFile, getFileUrl } from '@/app/cpos/actions';
 import { ModalShell, Field, inputCls, EvalBadge, FaultBadge, ProvinciaBadge } from './ui';
-import { monthLabel, last6Months } from '@/lib/helpers';
+import { classSessions, shortDate } from '@/lib/helpers';
 
 export default function CpoDetail({ profile, worker, provincias, records, transfers, notes, files, photoUrl }) {
   const [showRecordForm, setShowRecordForm] = useState(false);
@@ -20,7 +20,8 @@ export default function CpoDetail({ profile, worker, provincias, records, transf
   const fileInputRef = useRef(null);
 
   const provincia = provincias.find((p) => p.id === worker.provincia_id);
-  const cumulative = records.reduce((s, r) => s + r.faults, 0);
+  const totalFaltas = records.filter((r) => !r.attended).length;
+  const totalAsistencias = records.filter((r) => r.attended).length;
 
   async function handlePhotoChange(e) {
     const file = e.target.files[0];
@@ -73,7 +74,7 @@ export default function CpoDetail({ profile, worker, provincias, records, transf
   }
 
   const timeline = [
-    ...records.map((r) => ({ type: 'record', date: r.month, ...r })),
+    ...records.map((r) => ({ type: 'record', date: r.class_date, ...r })),
     ...transfers.map((t) => ({ type: 'transfer', date: t.moved_at.slice(0, 10), ...t })),
   ].sort((a, b) => b.date.localeCompare(a.date));
 
@@ -126,7 +127,10 @@ export default function CpoDetail({ profile, worker, provincias, records, transf
           <div className="flex items-center gap-3 mt-2">
             <ProvinciaBadge id={provincia?.id} name={provincia?.name || '—'} />
             <span className="text-xs" style={{ color: 'var(--gray)' }}>
-              Faltas acumuladas: <FaultBadge value={cumulative} />
+              Asistencias: <FaultBadge value={totalAsistencias} />
+            </span>
+            <span className="text-xs" style={{ color: 'var(--gray)' }}>
+              Faltas: <FaultBadge value={totalFaltas} />
             </span>
           </div>
         </div>
@@ -137,37 +141,39 @@ export default function CpoDetail({ profile, worker, provincias, records, transf
           <section>
             <div className="flex items-center justify-between mb-3">
               <h2 className="font-display text-sm font-semibold uppercase tracking-wide" style={{ color: '#5B6472' }}>
-                Registros mensuales
+                Asistencia
               </h2>
               <button
                 onClick={() => setShowRecordForm(true)}
                 className="text-xs font-medium inline-flex items-center gap-1"
                 style={{ color: 'var(--blue)' }}
               >
-                <Plus size={13} /> Cargar mes
+                <Plus size={13} /> Marcar clase
               </button>
             </div>
-            <div className="rounded-xl border border-line bg-white divide-y divide-line">
+            <div className="rounded-xl border border-line bg-white divide-y divide-line max-h-80 overflow-y-auto">
               {records.length === 0 && (
                 <p className="px-4 py-6 text-sm text-center" style={{ color: 'var(--gray)' }}>
-                  Sin registros todavía.
+                  Sin asistencia registrada todavía.
                 </p>
               )}
               {records.map((r) => (
-                <div key={r.id} className="px-4 py-3 flex items-center justify-between">
-                  <div>
-                    <div className="font-mono text-xs font-medium" style={{ color: 'var(--ink)' }}>
-                      {monthLabel(r.month.slice(0, 7))}
-                    </div>
-                    <div className="text-xs mt-0.5 flex gap-3" style={{ color: '#5B6472' }}>
-                      <span>Asist: {r.attendance_days ?? '—'}d</span>
-                      <span>
-                        Faltas: <FaultBadge value={r.faults} />
-                      </span>
-                      <span>
+                <div key={r.id} className="px-4 py-2.5 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <span
+                      className="w-5 h-5 rounded-full flex items-center justify-center shrink-0"
+                      style={{ backgroundColor: r.attended ? 'var(--blue-soft)' : 'var(--red-soft)' }}
+                    >
+                      {r.attended ? <Check size={11} style={{ color: 'var(--blue)' }} /> : <XIcon size={11} style={{ color: 'var(--red)' }} />}
+                    </span>
+                    <span className="font-mono text-xs font-medium" style={{ color: 'var(--ink)' }}>
+                      {shortDate(r.class_date)}
+                    </span>
+                    {r.evaluation != null && (
+                      <span className="text-xs" style={{ color: '#5B6472' }}>
                         Eval: <EvalBadge value={r.evaluation} />
                       </span>
-                    </div>
+                    )}
                   </div>
                   <button
                     onClick={() => setEditingRecord(r)}
@@ -334,11 +340,12 @@ export default function CpoDetail({ profile, worker, provincias, records, transf
                       {item.type === 'record' ? (
                         <div className="text-sm">
                           <span className="font-mono text-xs font-medium" style={{ color: 'var(--ink)' }}>
-                            {monthLabel(item.month.slice(0, 7))}
+                            {shortDate(item.class_date)}
                           </span>
                           <span style={{ color: '#5B6472' }}>
                             {' '}
-                            — {item.faults} faltas, eval {item.evaluation}/10
+                            — {item.attended ? 'asistió' : 'faltó'}
+                            {item.evaluation != null ? `, eval ${item.evaluation}/10` : ''}
                           </span>
                         </div>
                       ) : (
@@ -362,21 +369,23 @@ export default function CpoDetail({ profile, worker, provincias, records, transf
       </div>
 
       {(showRecordForm || editingRecord) && (
-        <RecordFormModal
+        <AttendanceModal
+          worker={worker}
+          existingDates={records.map((r) => r.class_date)}
           initial={editingRecord}
           onClose={() => {
             setShowRecordForm(false);
             setEditingRecord(null);
           }}
           onSave={async (data) => {
-            const result = editingRecord
-              ? await updateRecord(editingRecord.id, worker.id, data)
-              : await addRecord({ worker_id: worker.id, ...data });
-            if (!result?.error) {
-              setShowRecordForm(false);
-              setEditingRecord(null);
+            const attResult = await setAttendance(worker.id, data.classDate, data.attended);
+            if (attResult?.error) return attResult;
+            if (data.evaluation != null) {
+              await setEvaluation(worker.id, data.classDate, data.evaluation);
             }
-            return result;
+            setShowRecordForm(false);
+            setEditingRecord(null);
+            return { success: true };
           }}
         />
       )}
@@ -384,19 +393,23 @@ export default function CpoDetail({ profile, worker, provincias, records, transf
   );
 }
 
-function RecordFormModal({ initial, onSave, onClose }) {
-  const months = last6Months();
-  const [month, setMonth] = useState(initial ? initial.month.slice(0, 7) : months[months.length - 1]);
-  const [attendance, setAttendance] = useState(initial?.attendance_days ?? 20);
-  const [faults, setFaults] = useState(initial?.faults ?? 0);
-  const [evaluation, setEvaluation] = useState(initial?.evaluation ?? 7);
+function AttendanceModal({ worker, existingDates, initial, onSave, onClose }) {
+  const allSessions = classSessions();
+  const availableSessions = initial ? [initial.class_date] : allSessions.filter((s) => !existingDates.includes(s));
+  const [classDate, setClassDate] = useState(initial?.class_date || availableSessions[0] || allSessions[0]);
+  const [attended, setAttended] = useState(initial ? initial.attended : true);
+  const [evaluation, setEvaluationValue] = useState(initial?.evaluation ?? '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
   async function handleSave() {
     setSaving(true);
     setError(null);
-    const result = await onSave({ month, attendance_days: attendance, faults, evaluation });
+    const result = await onSave({
+      classDate,
+      attended,
+      evaluation: evaluation === '' ? null : Number(evaluation),
+    });
     if (result?.error) {
       setError(result.error);
       setSaving(false);
@@ -404,44 +417,40 @@ function RecordFormModal({ initial, onSave, onClose }) {
   }
 
   return (
-    <ModalShell title={initial ? 'Editar registro' : 'Cargar registro mensual'} onClose={onClose}>
+    <ModalShell title={initial ? `Clase del ${shortDate(initial.class_date)}` : 'Marcar clase'} onClose={onClose}>
       <div className="space-y-3">
         {!initial && (
-          <Field label="Mes">
-            <select className={inputCls} value={month} onChange={(e) => setMonth(e.target.value)}>
-              {months.map((m) => (
-                <option key={m} value={m}>
-                  {monthLabel(m)}
+          <Field label="Clase (domingo)">
+            <select className={inputCls} value={classDate} onChange={(e) => setClassDate(e.target.value)}>
+              {availableSessions.map((s) => (
+                <option key={s} value={s}>
+                  {shortDate(s)}
                 </option>
               ))}
             </select>
           </Field>
         )}
-        <div className="grid grid-cols-3 gap-2">
-          <Field label="Asistencia (días)">
-            <input
-              type="number"
-              min="0"
-              max="31"
-              className={inputCls}
-              value={attendance}
-              onChange={(e) => setAttendance(Number(e.target.value))}
-            />
-          </Field>
-          <Field label="Faltas">
-            <input type="number" min="0" className={inputCls} value={faults} onChange={(e) => setFaults(Number(e.target.value))} />
-          </Field>
-          <Field label="Evaluación (1-10)">
-            <input
-              type="number"
-              min="1"
-              max="10"
-              className={inputCls}
-              value={evaluation}
-              onChange={(e) => setEvaluation(Number(e.target.value))}
-            />
-          </Field>
-        </div>
+        <label className="flex items-center gap-2 text-sm" style={{ color: 'var(--ink)' }}>
+          <input
+            type="checkbox"
+            checked={attended}
+            onChange={(e) => setAttended(e.target.checked)}
+            className="w-5 h-5 rounded"
+            style={{ accentColor: 'var(--blue)' }}
+          />
+          Asistió a esta clase
+        </label>
+        <Field label="Evaluación (1-10, opcional)">
+          <input
+            type="number"
+            min="1"
+            max="10"
+            className={inputCls}
+            value={evaluation}
+            onChange={(e) => setEvaluationValue(e.target.value)}
+            placeholder="Sin evaluación"
+          />
+        </Field>
         {error && (
           <p className="text-sm" style={{ color: 'var(--red)' }}>
             {error}

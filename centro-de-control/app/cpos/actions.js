@@ -67,34 +67,61 @@ export async function transferWorker(workerId, newProvinciaId, note) {
   return { success: true };
 }
 
-export async function addRecord(data) {
+export async function setAttendance(workerId, classDate, attended) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const { error } = await supabase.from('monthly_records').insert({
-    worker_id: data.worker_id,
-    month: `${data.month}-01`,
-    attendance_days: data.attendance_days,
-    faults: data.faults,
-    evaluation: data.evaluation,
-    submitted_by: user.id,
-  });
+  const { error } = await supabase
+    .from('attendance_records')
+    .upsert(
+      { worker_id: workerId, class_date: classDate, attended, submitted_by: user.id, updated_at: new Date().toISOString() },
+      { onConflict: 'worker_id,class_date' }
+    );
   if (error) return { error: friendlyError(error) };
   revalidatePath('/cpos');
-  revalidatePath(`/cpos/${data.worker_id}`);
+  revalidatePath('/asistencia');
+  revalidatePath(`/cpos/${workerId}`);
   return { success: true };
 }
 
-export async function updateRecord(id, workerId, data) {
+export async function setAttendanceBulk(entries) {
+  // entries: [{ workerId, classDate, attended }]
   const supabase = createClient();
-  const { error } = await supabase
-    .from('monthly_records')
-    .update({
-      attendance_days: data.attendance_days,
-      faults: data.faults,
-      evaluation: data.evaluation,
+  const { data: { user } } = await supabase.auth.getUser();
+  const rows = entries.map((e) => ({
+    worker_id: e.workerId,
+    class_date: e.classDate,
+    attended: e.attended,
+    submitted_by: user.id,
+    updated_at: new Date().toISOString(),
+  }));
+  const { error } = await supabase.from('attendance_records').upsert(rows, { onConflict: 'worker_id,class_date' });
+  if (error) return { error: friendlyError(error) };
+  revalidatePath('/cpos');
+  revalidatePath('/asistencia');
+  return { success: true };
+}
+
+export async function setEvaluation(workerId, classDate, evaluation) {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const { data: existing } = await supabase
+    .from('attendance_records')
+    .select('id, attended')
+    .eq('worker_id', workerId)
+    .eq('class_date', classDate)
+    .maybeSingle();
+
+  const { error } = await supabase.from('attendance_records').upsert(
+    {
+      worker_id: workerId,
+      class_date: classDate,
+      attended: existing ? existing.attended : true,
+      evaluation,
+      submitted_by: user.id,
       updated_at: new Date().toISOString(),
-    })
-    .eq('id', id);
+    },
+    { onConflict: 'worker_id,class_date' }
+  );
   if (error) return { error: friendlyError(error) };
   revalidatePath('/cpos');
   revalidatePath(`/cpos/${workerId}`);

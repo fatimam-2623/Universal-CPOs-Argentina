@@ -114,6 +114,22 @@ export async function addNote(workerId, content) {
   return { success: true };
 }
 
+export async function updateNote(noteId, workerId, content) {
+  const supabase = createClient();
+  const { error } = await supabase.from('worker_notes').update({ content }).eq('id', noteId);
+  if (error) return { error: friendlyError(error) };
+  revalidatePath(`/cpos/${workerId}`);
+  return { success: true };
+}
+
+export async function deleteNote(noteId, workerId) {
+  const supabase = createClient();
+  const { error } = await supabase.from('worker_notes').delete().eq('id', noteId);
+  if (error) return { error: friendlyError(error) };
+  revalidatePath(`/cpos/${workerId}`);
+  return { success: true };
+}
+
 export async function uploadPhoto(workerId, formData) {
   const supabase = createClient();
   const file = formData.get('photo');

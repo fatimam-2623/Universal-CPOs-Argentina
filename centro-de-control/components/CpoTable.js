@@ -109,7 +109,7 @@ export default function CpoTable({ profile, provincias, workers, records }) {
                 </td>
                 {isSenior && (
                   <td className="px-4 py-2.5">
-                    <ProvinciaBadge name={provincia?.name || '—'} />
+                    <ProvinciaBadge id={provincia?.id} name={provincia?.name || '—'} />
                   </td>
                 )}
                 <td className="px-4 py-2.5 font-mono text-xs" style={{ color: '#5B6472' }}>

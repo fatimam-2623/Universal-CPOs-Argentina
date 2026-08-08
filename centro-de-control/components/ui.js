@@ -1,6 +1,7 @@
 'use client';
 
 import { X } from 'lucide-react';
+import { provinciaColor } from '@/lib/helpers';
 
 export const inputCls =
   'w-full text-sm px-3 py-2 rounded-lg border border-line bg-white focus:outline-none focus:border-[var(--blue)]';
@@ -48,12 +49,14 @@ export function ModalShell({ title, onClose, children }) {
   );
 }
 
-export function ProvinciaBadge({ name }) {
+export function ProvinciaBadge({ id, name }) {
+  const c = id ? provinciaColor(id) : null;
   return (
     <span
-      className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full"
-      style={{ backgroundColor: 'var(--blue-soft)', color: 'var(--blue)' }}
+      className="inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full"
+      style={c ? { backgroundColor: c.bg, color: c.text } : { backgroundColor: 'var(--blue-soft)', color: 'var(--blue)' }}
     >
+      {c && <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: c.dot }} />}
       {name}
     </span>
   );

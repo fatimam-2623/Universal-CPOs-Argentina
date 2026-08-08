@@ -24,3 +24,19 @@ export const ROLE_LABEL = {
   provincia_manager: 'Responsable Bloque',
   senior_management: 'Gerencia General',
 };
+
+// Deterministic, muted color per provincia id — same id always gets the same
+// color, spread across hues but kept low-saturation so it stays elegant
+// even with 20+ provincias on screen at once.
+export function provinciaColor(id) {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = id.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const hue = Math.abs(hash) % 360;
+  return {
+    text: `hsl(${hue}, 42%, 36%)`,
+    bg: `hsl(${hue}, 55%, 95%)`,
+    dot: `hsl(${hue}, 48%, 46%)`,
+  };
+}

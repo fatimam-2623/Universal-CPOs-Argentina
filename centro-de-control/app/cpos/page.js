@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
-import CpoTable from '@/components/CpoTable';
+import CposPageClient from '@/components/CposPageClient';
 
 export default async function CposPage() {
   const supabase = createClient();
@@ -35,7 +35,7 @@ export default async function CposPage() {
     <div className="min-h-screen flex" style={{ backgroundColor: 'var(--paper)' }}>
       <Sidebar profile={profile} />
       <div className="flex-1 min-w-0 p-8">
-        <CpoTable profile={profile} provincias={provincias || []} workers={workers || []} records={records || []} />
+        <CposPageClient profile={profile} provincias={provincias || []} workers={workers || []} records={records || []} />
       </div>
     </div>
   );

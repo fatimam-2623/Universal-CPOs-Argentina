@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { Camera, Plus, Pencil, Upload, File as FileIcon, Download, Send } from 'lucide-react';
-import { addRecord, updateRecord, addNote, uploadPhoto, uploadFile, getFileUrl } from '@/app/cpos/actions';
+import Link from 'next/link';
+import { Camera, Plus, Pencil, Upload, File as FileIcon, Download, Send, ArrowLeft, Trash2, Check, X as XIcon } from 'lucide-react';
+import { addRecord, updateRecord, addNote, updateNote, deleteNote, uploadPhoto, uploadFile, getFileUrl } from '@/app/cpos/actions';
 import { ModalShell, Field, inputCls, EvalBadge, FaultBadge, ProvinciaBadge } from './ui';
 import { monthLabel, last6Months } from '@/lib/helpers';
 
@@ -11,6 +12,8 @@ export default function CpoDetail({ profile, worker, provincias, records, transf
   const [editingRecord, setEditingRecord] = useState(null);
   const [noteText, setNoteText] = useState('');
   const [savingNote, setSavingNote] = useState(false);
+  const [editingNoteId, setEditingNoteId] = useState(null);
+  const [editingNoteText, setEditingNoteText] = useState('');
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
   const photoInputRef = useRef(null);
@@ -48,6 +51,22 @@ export default function CpoDetail({ profile, worker, provincias, records, transf
     setSavingNote(false);
   }
 
+  function startEditingNote(note) {
+    setEditingNoteId(note.id);
+    setEditingNoteText(note.content);
+  }
+
+  async function handleSaveNoteEdit() {
+    if (!editingNoteText.trim()) return;
+    await updateNote(editingNoteId, worker.id, editingNoteText.trim());
+    setEditingNoteId(null);
+  }
+
+  async function handleDeleteNote(noteId) {
+    if (!window.confirm('¿Eliminar esta nota?')) return;
+    await deleteNote(noteId, worker.id);
+  }
+
   async function handleDownload(f) {
     const url = await getFileUrl('worker-files', f.storage_path);
     if (url) window.open(url, '_blank');
@@ -60,6 +79,14 @@ export default function CpoDetail({ profile, worker, provincias, records, transf
 
   return (
     <div className="space-y-6">
+      <Link
+        href="/cpos"
+        className="inline-flex items-center gap-1.5 text-sm font-medium hover:opacity-70 transition-opacity"
+        style={{ color: 'var(--blue)' }}
+      >
+        <ArrowLeft size={15} /> Volver a CPOs
+      </Link>
+
       <div className="flex items-start gap-5">
         <div className="relative shrink-0">
           <div className="w-20 h-20 rounded-2xl overflow-hidden border border-line bg-white flex items-center justify-center">
@@ -97,7 +124,7 @@ export default function CpoDetail({ profile, worker, provincias, records, transf
             </p>
           )}
           <div className="flex items-center gap-3 mt-2">
-            <ProvinciaBadge name={provincia?.name || '—'} />
+            <ProvinciaBadge id={provincia?.id} name={provincia?.name || '—'} />
             <span className="text-xs" style={{ color: 'var(--gray)' }}>
               Faltas acumuladas: <FaultBadge value={cumulative} />
             </span>
@@ -223,14 +250,65 @@ export default function CpoDetail({ profile, worker, provincias, records, transf
                     Sin notas todavía.
                   </p>
                 )}
-                {notes.map((n) => (
-                  <div key={n.id} className="text-sm border-l-2 pl-3" style={{ borderColor: 'var(--line)' }}>
-                    <p style={{ color: 'var(--ink)' }}>{n.content}</p>
-                    <p className="text-xs mt-0.5" style={{ color: 'var(--gray)' }}>
-                      {new Date(n.created_at).toLocaleDateString('es-AR')}
-                    </p>
-                  </div>
-                ))}
+                {notes.map((n) =>
+                  editingNoteId === n.id ? (
+                    <div key={n.id} className="text-sm border-l-2 pl-3" style={{ borderColor: 'var(--blue)' }}>
+                      <input
+                        autoFocus
+                        value={editingNoteText}
+                        onChange={(e) => setEditingNoteText(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleSaveNoteEdit();
+                          if (e.key === 'Escape') setEditingNoteId(null);
+                        }}
+                        className={inputCls}
+                      />
+                      <div className="flex gap-2 mt-1.5">
+                        <button
+                          onClick={handleSaveNoteEdit}
+                          className="inline-flex items-center gap-1 text-xs font-medium"
+                          style={{ color: 'var(--blue)' }}
+                        >
+                          <Check size={12} /> Guardar
+                        </button>
+                        <button
+                          onClick={() => setEditingNoteId(null)}
+                          className="inline-flex items-center gap-1 text-xs font-medium"
+                          style={{ color: 'var(--gray)' }}
+                        >
+                          <XIcon size={12} /> Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div key={n.id} className="text-sm border-l-2 pl-3 group flex items-start justify-between gap-2" style={{ borderColor: 'var(--line)' }}>
+                      <div className="min-w-0">
+                        <p style={{ color: 'var(--ink)' }}>{n.content}</p>
+                        <p className="text-xs mt-0.5" style={{ color: 'var(--gray)' }}>
+                          {new Date(n.created_at).toLocaleDateString('es-AR')}
+                        </p>
+                      </div>
+                      <div className="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => startEditingNote(n)}
+                          className="w-6 h-6 inline-flex items-center justify-center rounded-md hover:bg-black/5"
+                          style={{ color: 'var(--blue)' }}
+                          title="Editar nota"
+                        >
+                          <Pencil size={12} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteNote(n.id)}
+                          className="w-6 h-6 inline-flex items-center justify-center rounded-md hover:bg-black/5"
+                          style={{ color: 'var(--red)' }}
+                          title="Eliminar nota"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    </div>
+                  )
+                )}
               </div>
             </div>
           </section>

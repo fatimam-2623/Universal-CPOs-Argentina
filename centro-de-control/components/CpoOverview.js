@@ -66,7 +66,7 @@ export default function CpoOverview({ profile, provincias, workers, records, act
       {isSenior && breakdown.length > 0 && (
         <div>
           <h2 className="font-display text-sm font-semibold uppercase tracking-wide mb-3" style={{ color: '#5B6472' }}>
-            Por Partido / Provincia
+            Partido / Provincia
           </h2>
           <div className="overflow-x-auto rounded-xl border border-line bg-white">
             <table className="w-full text-sm">

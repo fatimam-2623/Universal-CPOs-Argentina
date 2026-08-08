@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+:root {
+  --ink: #1C1E22;
+  --paper: #F7F7F6;
+  --blue: #2C557E;
+  --blue-soft: #2C557E14;
+  --red: #B31122;
+  --red-soft: #B3112214;
+  --gray: #A3A9B2;
+  --line: #E4E4E2;
+}
+
+body {
+  background-color: var(--paper);
+  color: var(--ink);
+  font-family: 'IBM Plex Sans', sans-serif;
+}
+
+.font-display {
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+.font-mono {
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+.border-line {
+  border-color: var(--line);
+}
+
+.divide-line > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--line);
+}

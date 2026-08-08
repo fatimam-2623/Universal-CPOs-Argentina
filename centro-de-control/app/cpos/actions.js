@@ -67,19 +67,55 @@ export async function transferWorker(workerId, newProvinciaId, note) {
   return { success: true };
 }
 
-export async function setAttendance(workerId, classDate, attended) {
+export async function setAttendance(workerId, classDate, attended, justified = null, justificationNote = null) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   const { error } = await supabase
     .from('attendance_records')
     .upsert(
-      { worker_id: workerId, class_date: classDate, attended, submitted_by: user.id, updated_at: new Date().toISOString() },
+      {
+        worker_id: workerId,
+        class_date: classDate,
+        attended,
+        justified: attended ? null : justified,
+        justification_note: attended ? null : justificationNote,
+        submitted_by: user.id,
+        updated_at: new Date().toISOString(),
+      },
       { onConflict: 'worker_id,class_date' }
     );
   if (error) return { error: friendlyError(error) };
   revalidatePath('/cpos');
   revalidatePath('/asistencia');
   revalidatePath(`/cpos/${workerId}`);
+  return { success: true };
+}
+
+export async function cancelSession(provinciaId, classDate, note) {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const { error } = await supabase
+    .from('session_cancellations')
+    .upsert(
+      { provincia_id: provinciaId, class_date: classDate, note: note || null, canceled_by: user.id },
+      { onConflict: 'provincia_id,class_date' }
+    );
+  if (error) return { error: friendlyError(error) };
+  revalidatePath('/asistencia');
+  revalidatePath('/cpos');
+  return { success: true };
+}
+
+export async function uncancelSession(provinciaId, classDate) {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from('session_cancellations')
+    .delete()
+    .eq('provincia_id', provinciaId)
+    .eq('class_date', classDate);
+  if (error) return { error: friendlyError(error) };
+  revalidatePath('/asistencia');
+  revalidatePath('/cpos');
   return { success: true };
 }
 

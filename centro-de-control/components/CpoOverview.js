@@ -40,8 +40,10 @@ export default function CpoOverview({ profile, provincias, workers, records, act
     const evals = workers.map((w) => latestEvalOf(w.id, records)).filter((e) => e != null);
     const promedioEvaluacion = evals.length ? (evals.reduce((s, e) => s + e, 0) / evals.length).toFixed(1) : '—';
 
-    const faltasPorWorker = workers.map((w) => records.filter((r) => r.worker_id === w.id && !r.attended).length);
-    const enAlerta = faltasPorWorker.filter((f) => f >= 3).length;
+    const faltasNoJustificadasPorWorker = workers.map(
+      (w) => records.filter((r) => r.worker_id === w.id && !r.attended && r.justified === false).length
+    );
+    const enAlerta = faltasNoJustificadasPorWorker.filter((f) => f >= 2).length;
 
     return { totalCpos, totalAsistencias, totalFaltas, promedioEvaluacion, enAlerta };
   }, [workers, records]);
@@ -69,7 +71,7 @@ export default function CpoOverview({ profile, provincias, workers, records, act
         <StatCard icon={<Calendar size={13} />} label="Asistencias" value={stats.totalAsistencias} />
         <StatCard icon={<AlertTriangle size={13} />} label="Faltas" value={stats.totalFaltas} />
         <StatCard icon={<TrendingUp size={13} />} label="Eval. promedio" value={stats.promedioEvaluacion} />
-        <StatCard icon={<ShieldAlert size={13} />} label="En alerta" value={stats.enAlerta} />
+        <StatCard icon={<ShieldAlert size={13} />} label="En alerta (sin justif.)" value={stats.enAlerta} />
       </div>
 
       {isSenior && breakdown.length > 0 && (

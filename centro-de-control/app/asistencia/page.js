@@ -16,6 +16,7 @@ export default async function AsistenciaPage() {
   const { data: provincias } = await supabase.from('provincias').select('*').order('name');
   const { data: workers } = await supabase.from('workers').select('*').order('name');
   const { data: attendance } = await supabase.from('attendance_records').select('*');
+  const { data: cancellations } = await supabase.from('session_cancellations').select('*');
 
   return (
     <div className="min-h-screen flex" style={{ backgroundColor: 'var(--paper)' }}>
@@ -25,7 +26,13 @@ export default async function AsistenciaPage() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo-wordmark.png" alt="Universal" className="h-7 w-auto opacity-90" />
         </div>
-        <AsistenciaRoster profile={profile} provincias={provincias || []} workers={workers || []} attendance={attendance || []} />
+        <AsistenciaRoster
+          profile={profile}
+          provincias={provincias || []}
+          workers={workers || []}
+          attendance={attendance || []}
+          cancellations={cancellations || []}
+        />
       </div>
     </div>
   );

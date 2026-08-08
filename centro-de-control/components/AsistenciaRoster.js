@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Check } from 'lucide-react';
-import { setAttendanceBulk } from '@/app/cpos/actions';
+import { Check, CalendarX, RotateCcw } from 'lucide-react';
+import { setAttendanceBulk, cancelSession, uncancelSession } from '@/app/cpos/actions';
 import { inputCls } from './ui';
 import { classSessions, shortDate, currentSession } from '@/lib/helpers';
 
-export default function AsistenciaRoster({ profile, provincias, workers, attendance }) {
+export default function AsistenciaRoster({ profile, provincias, workers, attendance, cancellations }) {
   const isSenior = profile.role === 'senior_management';
   const sessions = classSessions();
 
@@ -16,13 +16,17 @@ export default function AsistenciaRoster({ profile, provincias, workers, attenda
   const [initialized, setInitialized] = useState(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [showCancelForm, setShowCancelForm] = useState(false);
+  const [cancelNote, setCancelNote] = useState('');
+  const [canceling, setCanceling] = useState(false);
 
   const roster = useMemo(() => {
     if (!selectedProvincia) return [];
     return workers.filter((w) => w.provincia_id === selectedProvincia);
   }, [workers, selectedProvincia]);
 
-  // (Re)initialize checkbox state whenever the date or roster changes, from existing records.
+  const cancellation = cancellations.find((c) => c.provincia_id === selectedProvincia && c.class_date === selectedDate);
+
   const key = `${selectedDate}|${selectedProvincia}`;
   if (initialized !== key) {
     const initial = {};
@@ -33,6 +37,8 @@ export default function AsistenciaRoster({ profile, provincias, workers, attenda
     setChecks(initial);
     setInitialized(key);
     setSaved(false);
+    setShowCancelForm(false);
+    setCancelNote('');
   }
 
   async function handleSave() {
@@ -42,6 +48,17 @@ export default function AsistenciaRoster({ profile, provincias, workers, attenda
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
+  }
+
+  async function handleCancelSession() {
+    setCanceling(true);
+    await cancelSession(selectedProvincia, selectedDate, cancelNote.trim());
+    setCanceling(false);
+    setShowCancelForm(false);
+  }
+
+  async function handleUncancel() {
+    await uncancelSession(selectedProvincia, selectedDate);
   }
 
   const presentCount = roster.filter((w) => checks[w.id]).length;
@@ -87,7 +104,27 @@ export default function AsistenciaRoster({ profile, provincias, workers, attenda
         )}
       </div>
 
-      {selectedProvincia && (
+      {selectedProvincia && cancellation && (
+        <div className="rounded-xl border p-4" style={{ borderColor: 'var(--line)', backgroundColor: 'var(--red-soft)' }}>
+          <div className="flex items-center gap-2 text-sm font-medium" style={{ color: 'var(--red)' }}>
+            <CalendarX size={15} /> Esta clase está marcada como cancelada
+          </div>
+          {cancellation.note && (
+            <p className="text-sm mt-1.5" style={{ color: '#5B6472' }}>
+              {cancellation.note}
+            </p>
+          )}
+          <button
+            onClick={handleUncancel}
+            className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium"
+            style={{ color: 'var(--blue)' }}
+          >
+            <RotateCcw size={12} /> Reactivar esta clase
+          </button>
+        </div>
+      )}
+
+      {selectedProvincia && !cancellation && (
         <>
           <div className="rounded-xl border border-line bg-white divide-y divide-line">
             {roster.length === 0 && (
@@ -134,6 +171,43 @@ export default function AsistenciaRoster({ profile, provincias, workers, attenda
               </button>
             </div>
           )}
+
+          <div className="pt-2 border-t border-line">
+            {!showCancelForm ? (
+              <button
+                onClick={() => setShowCancelForm(true)}
+                className="inline-flex items-center gap-1.5 text-xs font-medium"
+                style={{ color: 'var(--gray)' }}
+              >
+                <CalendarX size={12} /> ¿No hubo clase este domingo?
+              </button>
+            ) : (
+              <div className="space-y-2 max-w-sm">
+                <p className="text-xs" style={{ color: '#5B6472' }}>
+                  Esto marca la clase como cancelada para este partido/provincia — nadie queda con falta ese día.
+                </p>
+                <input
+                  value={cancelNote}
+                  onChange={(e) => setCancelNote(e.target.value)}
+                  placeholder="Motivo (opcional)"
+                  className={inputCls}
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleCancelSession}
+                    disabled={canceling}
+                    className="text-xs font-medium px-3 py-1.5 rounded-lg text-white disabled:opacity-60"
+                    style={{ backgroundColor: 'var(--red)' }}
+                  >
+                    {canceling ? 'Guardando…' : 'Confirmar cancelación'}
+                  </button>
+                  <button onClick={() => setShowCancelForm(false)} className="text-xs font-medium px-3 py-1.5" style={{ color: '#5B6472' }}>
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </>
       )}
     </div>

@@ -169,6 +169,11 @@ export default function CpoDetail({ profile, worker, provincias, records, transf
                     <span className="font-mono text-xs font-medium" style={{ color: 'var(--ink)' }}>
                       {shortDate(r.class_date)}
                     </span>
+                    {!r.attended && (
+                      <span className="text-xs" style={{ color: r.justified === false ? 'var(--red)' : 'var(--gray)' }}>
+                        {r.justified == null ? 'Sin clasificar' : r.justified ? 'Justificada' : 'No justificada'}
+                      </span>
+                    )}
                     {r.evaluation != null && (
                       <span className="text-xs" style={{ color: '#5B6472' }}>
                         Eval: <EvalBadge value={r.evaluation} />
@@ -344,7 +349,10 @@ export default function CpoDetail({ profile, worker, provincias, records, transf
                           </span>
                           <span style={{ color: '#5B6472' }}>
                             {' '}
-                            — {item.attended ? 'asistió' : 'faltó'}
+                            —{' '}
+                            {item.attended
+                              ? 'asistió'
+                              : `faltó (${item.justified == null ? 'sin clasificar' : item.justified ? 'justificada' : 'no justificada'})`}
                             {item.evaluation != null ? `, eval ${item.evaluation}/10` : ''}
                           </span>
                         </div>
@@ -378,7 +386,7 @@ export default function CpoDetail({ profile, worker, provincias, records, transf
             setEditingRecord(null);
           }}
           onSave={async (data) => {
-            const attResult = await setAttendance(worker.id, data.classDate, data.attended);
+            const attResult = await setAttendance(worker.id, data.classDate, data.attended, data.justified, data.justificationNote);
             if (attResult?.error) return attResult;
             if (data.evaluation != null) {
               await setEvaluation(worker.id, data.classDate, data.evaluation);
@@ -398,6 +406,8 @@ function AttendanceModal({ worker, existingDates, initial, onSave, onClose }) {
   const availableSessions = initial ? [initial.class_date] : allSessions.filter((s) => !existingDates.includes(s));
   const [classDate, setClassDate] = useState(initial?.class_date || availableSessions[0] || allSessions[0]);
   const [attended, setAttended] = useState(initial ? initial.attended : true);
+  const [justified, setJustified] = useState(initial?.justified ?? true);
+  const [justificationNote, setJustificationNote] = useState(initial?.justification_note || '');
   const [evaluation, setEvaluationValue] = useState(initial?.evaluation ?? '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -408,6 +418,8 @@ function AttendanceModal({ worker, existingDates, initial, onSave, onClose }) {
     const result = await onSave({
       classDate,
       attended,
+      justified: attended ? null : justified,
+      justificationNote: attended ? null : justificationNote.trim() || null,
       evaluation: evaluation === '' ? null : Number(evaluation),
     });
     if (result?.error) {
@@ -440,6 +452,28 @@ function AttendanceModal({ worker, existingDates, initial, onSave, onClose }) {
           />
           Asistió a esta clase
         </label>
+        {!attended && (
+          <div className="rounded-lg p-3 space-y-2" style={{ backgroundColor: 'var(--paper)' }}>
+            <Field label="Falta">
+              <select
+                className={inputCls}
+                value={justified ? 'justified' : 'unjustified'}
+                onChange={(e) => setJustified(e.target.value === 'justified')}
+              >
+                <option value="justified">Justificada</option>
+                <option value="unjustified">No justificada</option>
+              </select>
+            </Field>
+            <Field label="Motivo (opcional)">
+              <input
+                className={inputCls}
+                value={justificationNote}
+                onChange={(e) => setJustificationNote(e.target.value)}
+                placeholder="Ej: turno médico"
+              />
+            </Field>
+          </div>
+        )}
         <Field label="Evaluación (1-10, opcional)">
           <input
             type="number"

@@ -35,7 +35,7 @@ export default function CpoTable({ profile, provincias, workers, records }) {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="font-display text-xl font-semibold" style={{ color: 'var(--ink)' }}>
-            {isSenior ? 'Todos los CPOs' : `CPOs — ${provinciaName || 'tu partido/provincia'}`}
+            {isSenior ? 'CPOs' : `CPOs — ${provinciaName || 'tu partido/provincia'}`}
           </h1>
           <p className="text-sm mt-0.5" style={{ color: '#5B6472' }}>
             {rows.length} en total

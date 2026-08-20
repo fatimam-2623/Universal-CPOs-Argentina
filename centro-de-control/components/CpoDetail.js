@@ -108,7 +108,7 @@ export default function CpoDetail({ profile, worker, provincias, records, transf
             onClick={() => photoInputRef.current?.click()}
             disabled={uploadingPhoto}
             className="absolute -bottom-1.5 -right-1.5 w-7 h-7 rounded-full flex items-center justify-center text-white shadow-sm disabled:opacity-60"
-            style={{ backgroundColor: 'var(--blue)' }}
+            style={{ backgroundColor: 'var(--blue)', display: profile.role === 'senior_management' ? 'flex' : 'none' }}
             title="Cambiar foto"
           >
             <Camera size={13} />

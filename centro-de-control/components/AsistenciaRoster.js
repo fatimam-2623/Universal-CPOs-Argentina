@@ -6,13 +6,15 @@ import { setAttendanceBulk, cancelSession, uncancelSession } from '@/app/cpos/ac
 import { inputCls } from './ui';
 import { classSessions, shortDate, currentSession } from '@/lib/helpers';
 
+const emptyRow = { attended: false, evaluation: '', justified: null, justificationNote: '' };
+
 export default function AsistenciaRoster({ profile, provincias, workers, attendance, cancellations }) {
   const isSenior = profile.role === 'senior_management';
   const sessions = classSessions();
 
   const [selectedDate, setSelectedDate] = useState(currentSession());
   const [selectedProvincia, setSelectedProvincia] = useState(isSenior ? '' : profile.provincia_id);
-  const [checks, setChecks] = useState({});
+  const [rows, setRows] = useState({});
   const [initialized, setInitialized] = useState(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -32,18 +34,39 @@ export default function AsistenciaRoster({ profile, provincias, workers, attenda
     const initial = {};
     roster.forEach((w) => {
       const rec = attendance.find((a) => a.worker_id === w.id && a.class_date === selectedDate);
-      initial[w.id] = rec ? rec.attended : false;
+      initial[w.id] = rec
+        ? {
+            attended: rec.attended,
+            evaluation: rec.evaluation ?? '',
+            justified: rec.justified,
+            justificationNote: rec.justification_note || '',
+          }
+        : { ...emptyRow };
     });
-    setChecks(initial);
+    setRows(initial);
     setInitialized(key);
     setSaved(false);
     setShowCancelForm(false);
     setCancelNote('');
   }
 
+  function updateRow(workerId, patch) {
+    setRows((prev) => ({ ...prev, [workerId]: { ...prev[workerId], ...patch } }));
+  }
+
   async function handleSave() {
     setSaving(true);
-    const entries = roster.map((w) => ({ workerId: w.id, classDate: selectedDate, attended: !!checks[w.id] }));
+    const entries = roster.map((w) => {
+      const r = rows[w.id] || emptyRow;
+      return {
+        workerId: w.id,
+        classDate: selectedDate,
+        attended: !!r.attended,
+        evaluation: r.evaluation === '' ? undefined : Number(r.evaluation),
+        justified: r.justified,
+        justificationNote: r.justificationNote,
+      };
+    });
     await setAttendanceBulk(entries);
     setSaving(false);
     setSaved(true);
@@ -61,7 +84,7 @@ export default function AsistenciaRoster({ profile, provincias, workers, attenda
     await uncancelSession(selectedProvincia, selectedDate);
   }
 
-  const presentCount = roster.filter((w) => checks[w.id]).length;
+  const presentCount = roster.filter((w) => rows[w.id]?.attended).length;
 
   return (
     <div className="space-y-6">
@@ -70,7 +93,7 @@ export default function AsistenciaRoster({ profile, provincias, workers, attenda
           Tomar asistencia
         </h1>
         <p className="text-sm mt-0.5" style={{ color: '#5B6472' }}>
-          Marcá quién vino a la clase y guardá. Lo que quede sin marcar queda como falta.
+          Marcá quién vino, cargá la nota si querés, y guardá. Lo que quede sin marcar queda como falta.
         </p>
       </div>
 
@@ -132,20 +155,74 @@ export default function AsistenciaRoster({ profile, provincias, workers, attenda
                 No hay CPOs cargados en este partido/provincia todavía.
               </p>
             )}
-            {roster.map((w) => (
-              <label key={w.id} className="px-4 py-3 flex items-center justify-between cursor-pointer hover:bg-black/[0.02]">
-                <span className="text-sm" style={{ color: 'var(--ink)' }}>
-                  {w.name}
-                </span>
-                <input
-                  type="checkbox"
-                  checked={!!checks[w.id]}
-                  onChange={(e) => setChecks({ ...checks, [w.id]: e.target.checked })}
-                  className="w-5 h-5 rounded"
-                  style={{ accentColor: 'var(--blue)' }}
-                />
-              </label>
-            ))}
+            {roster.map((w) => {
+              const r = rows[w.id] || emptyRow;
+              return (
+                <div key={w.id} className="px-4 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm min-w-0 truncate" style={{ color: 'var(--ink)' }}>
+                      {w.name}
+                    </span>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <input
+                        type="number"
+                        min="1"
+                        max="10"
+                        value={r.evaluation}
+                        onChange={(e) => updateRow(w.id, { evaluation: e.target.value })}
+                        placeholder="Nota"
+                        title="Nota evaluación"
+                        className="w-16 text-sm text-center px-2 py-1.5 rounded-lg border border-line bg-white focus:outline-none"
+                      />
+                      <input
+                        type="checkbox"
+                        checked={!!r.attended}
+                        onChange={(e) => updateRow(w.id, { attended: e.target.checked })}
+                        className="w-5 h-5 rounded"
+                        style={{ accentColor: 'var(--blue)' }}
+                      />
+                    </div>
+                  </div>
+                  {!r.attended && (
+                    <div className="mt-2 flex flex-wrap items-center gap-2 pl-0">
+                      <span className="text-xs" style={{ color: 'var(--gray)' }}>
+                        Falta:
+                      </span>
+                      <button
+                        onClick={() => updateRow(w.id, { justified: true })}
+                        className="text-xs font-medium px-2.5 py-1 rounded-full border"
+                        style={
+                          r.justified === true
+                            ? { backgroundColor: 'var(--blue)', color: 'white', borderColor: 'var(--blue)' }
+                            : { color: '#5B6472', borderColor: 'var(--line)' }
+                        }
+                      >
+                        Justificada
+                      </button>
+                      <button
+                        onClick={() => updateRow(w.id, { justified: false })}
+                        className="text-xs font-medium px-2.5 py-1 rounded-full border"
+                        style={
+                          r.justified === false
+                            ? { backgroundColor: 'var(--red)', color: 'white', borderColor: 'var(--red)' }
+                            : { color: '#5B6472', borderColor: 'var(--line)' }
+                        }
+                      >
+                        No justificada
+                      </button>
+                      {r.justified === true && (
+                        <input
+                          value={r.justificationNote}
+                          onChange={(e) => updateRow(w.id, { justificationNote: e.target.value })}
+                          placeholder="Motivo (opcional)"
+                          className="text-xs px-2.5 py-1 rounded-full border border-line flex-1 min-w-[140px] focus:outline-none"
+                        />
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           {roster.length > 0 && (

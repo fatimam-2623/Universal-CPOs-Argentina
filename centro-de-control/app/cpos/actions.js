@@ -120,16 +120,24 @@ export async function uncancelSession(provinciaId, classDate) {
 }
 
 export async function setAttendanceBulk(entries) {
-  // entries: [{ workerId, classDate, attended }]
+  // entries: [{ workerId, classDate, attended, evaluation?, justified?, justificationNote? }]
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const rows = entries.map((e) => ({
-    worker_id: e.workerId,
-    class_date: e.classDate,
-    attended: e.attended,
-    submitted_by: user.id,
-    updated_at: new Date().toISOString(),
-  }));
+  const rows = entries.map((e) => {
+    const row = {
+      worker_id: e.workerId,
+      class_date: e.classDate,
+      attended: e.attended,
+      submitted_by: user.id,
+      updated_at: new Date().toISOString(),
+    };
+    if (e.evaluation !== undefined) row.evaluation = e.evaluation;
+    if (!e.attended) {
+      row.justified = e.justified ?? null;
+      row.justification_note = e.justificationNote || null;
+    }
+    return row;
+  });
   const { error } = await supabase.from('attendance_records').upsert(rows, { onConflict: 'worker_id,class_date' });
   if (error) return { error: friendlyError(error) };
   revalidatePath('/cpos');

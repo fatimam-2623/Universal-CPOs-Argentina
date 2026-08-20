@@ -15,7 +15,9 @@ export default function CpoDetail({ profile, worker, provincias, records, transf
   const [editingNoteId, setEditingNoteId] = useState(null);
   const [editingNoteText, setEditingNoteText] = useState('');
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoError, setPhotoError] = useState(null);
   const [uploadingFile, setUploadingFile] = useState(false);
+  const [fileError, setFileError] = useState(null);
   const photoInputRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -27,20 +29,25 @@ export default function CpoDetail({ profile, worker, provincias, records, transf
     const file = e.target.files[0];
     if (!file) return;
     setUploadingPhoto(true);
+    setPhotoError(null);
     const fd = new FormData();
     fd.append('photo', file);
-    await uploadPhoto(worker.id, fd);
+    const result = await uploadPhoto(worker.id, fd);
     setUploadingPhoto(false);
+    if (result?.error) setPhotoError(result.error);
+    e.target.value = '';
   }
 
   async function handleFileChange(e) {
     const file = e.target.files[0];
     if (!file) return;
     setUploadingFile(true);
+    setFileError(null);
     const fd = new FormData();
     fd.append('file', file);
-    await uploadFile(worker.id, fd);
+    const result = await uploadFile(worker.id, fd);
     setUploadingFile(false);
+    if (result?.error) setFileError(result.error);
     if (fileInputRef.current) fileInputRef.current.value = '';
   }
 
@@ -114,6 +121,11 @@ export default function CpoDetail({ profile, worker, provincias, records, transf
             <Camera size={13} />
           </button>
           <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
+          {photoError && (
+            <p className="absolute top-full mt-1 w-40 text-xs" style={{ color: 'var(--red)' }}>
+              {photoError}
+            </p>
+          )}
         </div>
         <div className="flex-1 min-w-0">
           <h1 className="font-display text-xl font-semibold" style={{ color: 'var(--ink)' }}>
@@ -207,6 +219,11 @@ export default function CpoDetail({ profile, worker, provincias, records, transf
               </button>
               <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileChange} />
             </div>
+            {fileError && (
+              <p className="text-xs mb-2" style={{ color: 'var(--red)' }}>
+                {fileError}
+              </p>
+            )}
             <div className="rounded-xl border border-line bg-white divide-y divide-line">
               {files.length === 0 && (
                 <p className="px-4 py-6 text-sm text-center" style={{ color: 'var(--gray)' }}>
